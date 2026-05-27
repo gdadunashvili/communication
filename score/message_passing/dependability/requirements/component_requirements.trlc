@@ -20,9 +20,181 @@ import MessagePassingSEooC
 // Server Unit and Client Unit requirements
 ///////////////////////////////
 
-ScoreReq.CompReq REQ_MP_COMP_001 {
-    description = "The message passing server shall accept connections from clients on a configurable resource path."
+// units form the quild file
+//
+// client_connection
+// unix_domain
+// qnx_dispatch
+
+section "System Requirements" {
+
+ScoreReq.CompReq SafetyCertifiedTransportMechanismUnderQNX {
+    description = "Under QNX, the message passing component shall use a safety-certified transport mechanism as the underlying IPC."
     safety = ScoreReq.Asil.B
-    derived_from = [MessagePassingSEooC.FEAT_MP_001@1]
+    derived_from = [MessagePassingSEooC.SafetyCertifiedTransportMechanism@1]
     version = 1
 }
+
+ScoreReq.CompReq UnforgableSenderIdentity {
+    description = "The server shall be able to identify the sender of each received message by the sender's OS-provided UID. The transport mechanism shall ensure that this identity cannot be forged by the client."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.ServerInterface@1]
+    version = 1
+}
+
+}
+
+section "Behaviour Requirements" {
+
+ScoreReq.CompReq OSIndependentAPI {
+    description = "The message passing component shall expose the same API to application code regardless of the underlying OS or transport mechanism, hiding all transport-specific details behind the component interface."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.OSIndependentAPI@1]
+    version = 1
+}
+
+ScoreReq.CompReq MultiSessionManagementWithBoundedThreadPool {
+    description = "The server shall manage multiple simultaneous independent point-to-point client sessions by reusing a bounded pool of threads, such that the number of threads does not grow linearly with the number of active connections."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.PointToPointConnections@1]
+    version = 1
+}
+
+ScoreReq.CompReq ReliableMessageDelivery {
+    description = """While a session is established and within the configured message-size limits, the message passing component shall guarantee that:
+  1. messages are delivered in the order they were sent per connection,
+  2. no message is delivered more than once,
+  3. no message is silently lost,
+  4. and any detected message corruption is reported as an error rather than delivering corrupted data."""
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.UnidirectionalAndTwoWayCommunicationModes@1]
+    version = 1
+}
+
+ScoreReq.CompReq PreAllocationOfMessageBuffers {
+    description = "At initialization, each server and client endpoint shall declare the maximum request and response message sizes, and the component shall pre-allocate all required storage from those declared sizes before any message exchange begins."
+    safety = ScoreReq.Asil.QM
+    derived_from = [MessagePassingSEooC.SmallDataLowLatencyCommunication@1]
+    version = 1
+}
+
+ScoreReq.CompReq SupportForSynchronousBlockingRPC {
+    description = "The message passing component shall support synchronous blocking RPC-style request-response communication, where the calling thread blocks until the server reply is received or an error is reported."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.UnidirectionalAndTwoWayCommunicationModes@1, MessagePassingSEooC.SynchronousAndAsynchronousCommunicationModes@1]
+    version = 1
+}
+
+ScoreReq.CompReq SupportForAsynchronousNonBlockingRPC {
+    description = "The message passing component shall support asynchronous request-response communication, where the client sends a request without blocking and provides a callback that is invoked when the corresponding reply is received."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.SynchronousAndAsynchronousCommunicationModes@1]
+    version = 1
+}
+
+ScoreReq.CompReq SessionManagementAndConnectionLossDetection {
+    description = "The message passing component shall implement session management that detects unresponsive or terminated peers and notifies the application via a state-change callback when a connection is lost."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.ServerInterface@1]
+    version = 1
+}
+
+}
+
+section "API Requirements" {
+
+ScoreReq.CompReq UserDefinedMessageHandlers {
+    description = "The component shall provide an IConnectionHandler interface that allows the server to delegate per-connection message handling and disconnection events to a dedicated handler object assigned per client connection at connection time, as an alternative to global server-wide callback functions."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.ServerInterface@1]
+    version = 1
+}
+
+ScoreReq.CompReq UserDataAssociationWithConnections {
+    description = "The component shall allow the server to associate application-defined user data with each accepted client connection via a UserData variant, so that per-connection state can be stored at connect time and retrieved from the server connection object during subsequent callbacks."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.ServerInterface@1]
+    version = 1
+}
+
+ScoreReq.CompReq UnixDomainSocketTransport {
+    description = "The component shall provide a Unix Domain Socket based transport implementation for Linux (UnixDomainEngine, UnixDomainClientFactory, UnixDomainServerFactory), exposing the same IClientFactory and IServerFactory interfaces as the QNX transport, to enable host-side testing and development without a QNX target."
+    safety = ScoreReq.Asil.QM
+    derived_from = [MessagePassingSEooC.OSIndependentAPI@1]
+    version = 1
+}
+
+ScoreReq.CompReq ConfigurableLoggingInterface {
+    description = "The component shall expose a LoggingCallback interface that allows application code to inject a custom log sink with configurable severity levels (Fatal, Error, Warn, Info, Debug, Verbose). A default standard-error logger shall be provided via GetCerrLogger()."
+    safety = ScoreReq.Asil.QM
+    derived_from = [MessagePassingSEooC.OSIndependentAPI@1]
+    version = 1
+}
+
+}
+
+section "Server Unit Requirements" {
+
+ScoreReq.CompReq ServerDiscoveryThroughConfigurableResourcePath {
+    description = "The message passing server shall accept connections from clients on a configurable resource path."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.ServerInterface@1]
+    version = 1
+}
+
+ScoreReq.CompReq GloballyAvailableResourcePath {
+    description = "The server endpoint shall be identified by a unique name (resource path) within a global service namespace that is accessible to all processes in the system."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.ServerInterface@1]
+    version = 1
+}
+
+ScoreReq.CompReq NoDynamicMemoryAllocationInHotPhaseOnQNX {
+    description = "The message passing component shall not perform dynamic memory allocation during message transmission (hot phase) on QNX."
+    safety = ScoreReq.Asil.QM
+    derived_from = [MessagePassingSEooC.SmallDataLowLatencyCommunication@1]
+    version = 1
+}
+
+}
+
+section "Client Unit Requirements (client_connection)" {
+
+// gToDo: should this requirement be duplicated for the server unit as well?
+ScoreReq.CompReq PointToPointConnections {
+    description = "Each client connection instance shall establish a point-to-point channel with exactly one server endpoint. N:M topologies, where a single client connection or a single server connection instance simultaneously serves multiple partners, are not supported."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.PointToPointConnections@1]
+    version = 1
+}
+
+ScoreReq.CompReq FireAndForgetUnidirectionalMessages {
+    description = "The client shall support unidirectional fire-and-forget message sending to the server without blocking for or requiring a reply."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.UnidirectionalAndTwoWayCommunicationModes@1]
+    version = 1
+}
+
+ScoreReq.CompReq SupportForPollingIncomingMessages {
+    description = "The message passing component shall provide a poll API that allows a client to check for and retrieve an incoming server message without registering a callback and without being subject to asynchronous interruptions during the poll."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.UnidirectionalAndTwoWayCommunicationModes@1, MessagePassingSEooC.SynchronousAndAsynchronousCommunicationModes@1]
+    version = 1
+}
+
+ScoreReq.CompReq SupportForAsynchronousIncomingMessageCallbacks {
+    description = "The message passing component shall provide enable the client to register a callback that gets executed if a message from the server is received."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.SynchronousAndAsynchronousCommunicationModes@1]
+    version = 1
+}
+
+ScoreReq.CompReq SupportForAsynchronousConnectionEstablishment {
+    description = "The message passing component shall support asynchronous connection establishment, allowing a client to initiate a connection without blocking the calling thread while waiting for the server to become available."
+    safety = ScoreReq.Asil.B
+    derived_from = [MessagePassingSEooC.SynchronousAndAsynchronousCommunicationModes@1]
+    version = 1
+}
+
+}
+
